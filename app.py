@@ -18,7 +18,7 @@ if order_file and deposit_file:
         # ✅ 주문내역 처리
         order_df = pd.read_excel(order_file, engine="openpyxl")
 
-        # 컬럼명 수동 매핑
+        # 컬럼명 매핑
         order_df = order_df.rename(columns={
             "입금자명": "입금자(사이트)",
             "주문자명": "주문자",
