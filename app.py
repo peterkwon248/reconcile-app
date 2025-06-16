@@ -1,4 +1,4 @@
-import streamlit as st
+import streamlit as st 
 import pandas as pd
 import io
 from openpyxl.styles import PatternFill, Font
@@ -17,10 +17,13 @@ if order_file and deposit_file:
     try:
         # ✅ 주문내역 처리
         order_df = pd.read_excel(order_file, engine="openpyxl")
+        order_columns = order_df.columns
+
+        # 자동 컬럼 이름 매핑
         order_df = order_df.rename(columns={
-            "입금자명": "입금자(사이트)",
-            "주문자명": "주문자",
-            "총 결제금액": "총 구매금액"
+            [col for col in order_columns if '입금자' in col][0]: "입금자(사이트)",
+            [col for col in order_columns if '주문자' in col or '회원명' in col][0]: "주문자",
+            [col for col in order_columns if '결제' in col or '구매금액' in col][0]: "총 구매금액"
         })
 
         order_df["총 구매금액"] = pd.to_numeric(order_df["총 구매금액"], errors="coerce").fillna(0)
@@ -34,7 +37,13 @@ if order_file and deposit_file:
 
         # ✅ 입금내역 처리
         deposit_df = pd.read_excel(deposit_file, engine="openpyxl")
-        deposit_df = deposit_df.rename(columns={"내용": "입금자(실제)", "입금액": "통장입금"})
+        deposit_columns = deposit_df.columns
+
+        deposit_df = deposit_df.rename(columns={
+            [col for col in deposit_columns if '내용' in col or '입금자' in col][0]: "입금자(실제)",
+            [col for col in deposit_columns if '금액' in col][0]: "통장입금"
+        })
+
         deposit_df["통장입금"] = pd.to_numeric(deposit_df["통장입금"], errors="coerce").fillna(0)
         deposit_df["입금자키"] = deposit_df["입금자(실제)"].astype(str).str.replace(" ", "").str.strip()
 
