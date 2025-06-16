@@ -7,16 +7,16 @@ from openpyxl import load_workbook
 st.set_page_config(page_title="📊 메상서 자동 정산 프로그램", layout="centered")
 st.title("📊 메상서 자동 정산 프로그램")
 
-st.markdown("### 📄 사이트 주문내역 엘셀 업로드")
+st.markdown("### 📄 사이트 주문내역 엑셀 업로드")
 order_file = st.file_uploader("", type=["xls", "xlsx"], key="order", label_visibility="collapsed")
 
-st.markdown("### 💰 계좌 입금내역 엘셀 업로드")
+st.markdown("### 💰 계좌 입금내역 엑셀 업로드")
 deposit_file = st.file_uploader("", type=["xls", "xlsx"], key="deposit", label_visibility="collapsed")
 
 if order_file and deposit_file:
     try:
-        # ✅ 주문내역 처리 (read_html 구문 교체 필요)
-        order_df = pd.read_excel(order_file, dtype=str)
+        # ✅ 주문내역 처리
+        order_df = pd.read_excel(order_file, dtype=str, engine="openpyxl")
 
         order_df = order_df.rename(columns={
             order_df.columns[1]: "주문자",
@@ -24,8 +24,7 @@ if order_file and deposit_file:
             "입금자": "입금자(사이트)"
         })
 
-        order_df["cd1d 구매금액"] = pd.to_numeric(order_df["총 결제 금액"], errors="coerce")
-        order_df["cd1d 구매금액"] = order_df["cd1d 구매금액"].fillna(0)
+        order_df["cd1d 구매금액"] = pd.to_numeric(order_df["총 결제 금액"], errors="coerce").fillna(0)
         order_df["입금자키"] = order_df["입금자(사이트)"].astype(str).str.replace(" ", "").str.strip()
 
         order_grouped = order_df.groupby("입금자키", as_index=False).agg({
@@ -35,7 +34,7 @@ if order_file and deposit_file:
         }).rename(columns={"cd1d 구매금액": "총 구매금액"})
 
         # ✅ 입금내역 처리
-        deposit_df = pd.read_excel(deposit_file)
+        deposit_df = pd.read_excel(deposit_file, engine="openpyxl")
         deposit_df = deposit_df.rename(columns={"내용": "입금자(실제)", "입금액": "통장입금"})
         deposit_df["통장입금"] = pd.to_numeric(deposit_df["통장입금"], errors="coerce").fillna(0)
         deposit_df["입금자키"] = deposit_df["입금자(실제)"].astype(str).str.replace(" ", "").str.strip()
@@ -45,7 +44,7 @@ if order_file and deposit_file:
             "통장입금": "sum"
         })
 
-        # ✅ 범위 비교 및 반환
+        # ✅ 병합 처리
         matched_rows = []
         used_deposit_keys = set()
 
@@ -76,8 +75,8 @@ if order_file and deposit_file:
                     "통장입금": 0
                 })
 
-        unmatched_deposits = deposit_grouped[~deposit_grouped["입금자키"].isin(used_deposit_keys)]
-        for _, row in unmatched_deposits.iterrows():
+        unmatched = deposit_grouped[~deposit_grouped["입금자키"].isin(used_deposit_keys)]
+        for _, row in unmatched.iterrows():
             matched_rows.append({
                 "주문자": "",
                 "입금자(사이트)": "",
@@ -86,7 +85,7 @@ if order_file and deposit_file:
                 "통장입금": row["통장입금"]
             })
 
-        # ✅ 결과 정리
+        # ✅ 최종 결과 계산
         result_df = pd.DataFrame(matched_rows)
         result_df["차이"] = result_df["통장입금"] - result_df["총 구매금액"]
         result_df = result_df[["주문자", "입금자(사이트)", "입금자(실제)", "총 구매금액", "통장입금", "차이"]].sort_values(by="주문자")
@@ -99,7 +98,7 @@ if order_file and deposit_file:
         st.success("✅ 정산표가 성공적으로 생성되었습니다!")
         st.dataframe(result_df, use_container_width=True)
 
-        # ✅ 엘셀 저장
+        # ✅ 다운로드용 엑셀 저장
         towrite = io.BytesIO()
         with pd.ExcelWriter(towrite, engine="openpyxl") as writer:
             df_b2b.to_excel(writer, index=False, sheet_name="B2B")
@@ -119,13 +118,13 @@ if order_file and deposit_file:
                     if diff is None:
                         continue
 
-                    # 강조
+                    # 주문자 강조 조건
                     if sheet_name == "B2B_더 입금된 건들" and diff > 0:
-                        row[0].font = bold_font  # 주문자만 굵게
+                        row[0].font = bold_font
                     elif sheet_name == "B2B_덜 입금된 건들" and diff < 0:
-                        row[0].font = red_font  # 주문자만 빨간 굵게
+                        row[0].font = red_font
 
-                    # 차이 셀 스타일 공통 적용
+                    # 차이 강조는 공통
                     if diff > 0:
                         row[5].fill = yellow_fill
                         row[5].font = bold_font
