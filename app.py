@@ -4,8 +4,8 @@ import io
 from openpyxl.styles import PatternFill, Font
 from openpyxl import load_workbook
 
-st.set_page_config(page_title="📊 메상서 자동 정산 프로그램", layout="centered")
-st.title("📊 메상서 자동 정산 프로그램")
+st.set_page_config(page_title="📊 계산서 자동 정리 프로그램", layout="centered")
+st.title("📊 계산서 자동 정리 프로그램")
 
 st.markdown("### 📄 사이트 주문내역 엑셀 업로드")
 order_file = st.file_uploader("", type=["xls", "xlsx"], key="order", label_visibility="collapsed")
@@ -17,8 +17,6 @@ if order_file and deposit_file:
     try:
         # ✅ 주문내역 처리
         order_df = pd.read_excel(order_file, engine="openpyxl")
-
-        # 컬럼명 매핑
         order_df = order_df.rename(columns={
             "입금자명": "입금자(사이트)",
             "주문자명": "주문자",
@@ -52,7 +50,6 @@ if order_file and deposit_file:
         for _, order_row in order_grouped.iterrows():
             site_key = order_row["입금자키"]
             matched = False
-
             for _, deposit_row in deposit_grouped.iterrows():
                 deposit_key = deposit_row["입금자키"]
                 if (site_key in deposit_key or deposit_key in site_key) and deposit_key not in used_deposit_keys:
@@ -66,7 +63,6 @@ if order_file and deposit_file:
                     used_deposit_keys.add(deposit_key)
                     matched = True
                     break
-
             if not matched:
                 matched_rows.append({
                     "주문자": order_row["주문자"],
@@ -86,7 +82,7 @@ if order_file and deposit_file:
                 "통장입금": row["통장입금"]
             })
 
-        # ✅ 최종 결과 계산
+        # ✅ 최종 계산
         result_df = pd.DataFrame(matched_rows)
         result_df["차이"] = result_df["통장입금"] - result_df["총 구매금액"]
         result_df = result_df[["주문자", "입금자(사이트)", "입금자(실제)", "총 구매금액", "통장입금", "차이"]].sort_values(by="주문자")
@@ -99,7 +95,7 @@ if order_file and deposit_file:
         st.success("✅ 정산표가 성공적으로 생성되었습니다!")
         st.dataframe(result_df, use_container_width=True)
 
-        # ✅ 다운로드용 엑셀 저장
+        # ✅ 엑셀로 저장 및 강조
         towrite = io.BytesIO()
         with pd.ExcelWriter(towrite, engine="openpyxl") as writer:
             df_b2b.to_excel(writer, index=False, sheet_name="B2B")
@@ -118,7 +114,6 @@ if order_file and deposit_file:
                     diff = row[5].value
                     if diff is None:
                         continue
-
                     if sheet_name == "B2B_더 입금된 건들" and diff > 0:
                         row[0].font = bold_font
                     elif sheet_name == "B2B_덜 입금된 건들" and diff < 0:
