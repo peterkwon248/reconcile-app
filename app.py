@@ -16,22 +16,23 @@ deposit_file = st.file_uploader("", type=["xls", "xlsx"], key="deposit", label_v
 if order_file and deposit_file:
     try:
         # ✅ 주문내역 처리
-        order_df = pd.read_excel(order_file, dtype=str, engine="openpyxl")
+        order_df = pd.read_excel(order_file, engine="openpyxl")
 
+        # 컬럼명 수동 매핑
         order_df = order_df.rename(columns={
-            order_df.columns[1]: "주문자",
-            order_df.columns[5]: "총 결제 금액",
-            "입금자": "입금자(사이트)"
+            "입금자명": "입금자(사이트)",
+            "주문자명": "주문자",
+            "총 결제금액": "총 구매금액"
         })
 
-        order_df["cd1d 구매금액"] = pd.to_numeric(order_df["총 결제 금액"], errors="coerce").fillna(0)
+        order_df["총 구매금액"] = pd.to_numeric(order_df["총 구매금액"], errors="coerce").fillna(0)
         order_df["입금자키"] = order_df["입금자(사이트)"].astype(str).str.replace(" ", "").str.strip()
 
         order_grouped = order_df.groupby("입금자키", as_index=False).agg({
             "주문자": "first",
             "입금자(사이트)": "first",
-            "cd1d 구매금액": "sum"
-        }).rename(columns={"cd1d 구매금액": "총 구매금액"})
+            "총 구매금액": "sum"
+        })
 
         # ✅ 입금내역 처리
         deposit_df = pd.read_excel(deposit_file, engine="openpyxl")
@@ -118,13 +119,11 @@ if order_file and deposit_file:
                     if diff is None:
                         continue
 
-                    # 주문자 강조 조건
                     if sheet_name == "B2B_더 입금된 건들" and diff > 0:
                         row[0].font = bold_font
                     elif sheet_name == "B2B_덜 입금된 건들" and diff < 0:
                         row[0].font = red_font
 
-                    # 차이 강조는 공통
                     if diff > 0:
                         row[5].fill = yellow_fill
                         row[5].font = bold_font
